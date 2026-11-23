@@ -16,8 +16,10 @@ class Sheet:
 
 def sheets():
     import pandas as pd
-    urls = oc.links(PAGE, r"\.xlsx?$")
-    oc.check(urls, "推計結果の表が見つかりません")
+    want = {"kekkahyo1.xlsx": "total", "kekkahyo2_1.xlsx": "kids", "kekkahyo2_3.xlsx": "old"}
+    urls = [u for u in oc.links(PAGE, r"\.xlsx?$") if u.rsplit("/", 1)[-1] in want]
+    urls = list(dict.fromkeys(urls))
+    oc.check(len(urls) >= 1, "結果表1（総人口）が見つかりません")
     for u in urls:
         b = oc.get(u, cache="ipss_" + u.rsplit("/", 1)[-1])
         try:
@@ -26,39 +28,48 @@ def sheets():
             oc.log("skip", u, e)
             continue
         for name, df in book.items():
-            yield u, Sheet(str(name), [tuple(None if (isinstance(v, float) and v != v) else v for v in r) for r in df.itertuples(index=False)])
+            yield u, Sheet(want[u.rsplit("/", 1)[-1]] + " " + str(name), [tuple(None if (isinstance(v, float) and v != v) else v for v in r) for r in df.itertuples(index=False)])
 
 
 def parse(ws):
-    """「コード」「市区町村」と、年（2020…2050）が並ぶ見出し行を探し、総人口・0〜14歳・65歳以上を取る。"""
+    """見出しが複数行でもよいように、先頭15行から「コード」列と各年の列（最初に出てくるもの＝人口）を探す。"""
     rows = ws.rows
-    for hi, h in enumerate(rows[:15]):
-        cells = [str(c or "") for c in h]
-        years = {i: int(re.search(r"(20\d\d)", c).group(1)) for i, c in enumerate(cells) if re.search(r"20[2-5]\d", c)}
-        if 2020 in years.values() and 2050 in years.values() and any("コード" in c for c in cells):
-            ci = next(i for i, c in enumerate(cells) if "コード" in c)
-            ni = next((i for i, c in enumerate(cells) if "市区町村" in c or "地域" in c or "名" in c), ci + 1)
-            yi = {y: i for i, y in years.items()}
-            out = []
-            for r in rows[hi + 1:]:
-                code = re.sub(r"\D", "", str(r[ci] or ""))
-                if len(code) < 4:
-                    continue
-                out.append((code.zfill(5)[:5], str(r[ni] or "").strip(), oc.num(r[yi[2020]]), oc.num(r[yi[2050]])))
-            return out
-    return None
+    head = rows[:15]
+    ci = ni = None; yi = {}
+    for h in head:
+        for i, c in enumerate(h):
+            t = str(c or "")
+            if ci is None and "コード" in t:
+                ci = i
+            if ni is None and re.search(r"市区町村|地域|団体名", t):
+                ni = i
+            m = re.search(r"(20[2-5][05])", t)
+            if m and int(m.group(1)) not in yi:
+                yi[int(m.group(1))] = i
+    if ci is None or 2020 not in yi or 2050 not in yi:
+        oc.log("header not found", ws.title, [list(h)[:12] for h in head[:6]])
+        return None
+    if ni is None:
+        ni = ci + 1
+    out = []
+    for r in rows:
+        code = re.sub(r"\D", "", str(r[ci] or ""))
+        if len(code) < 4 or len(code) > 6:
+            continue
+        a, b = oc.num(r[yi[2020]]), oc.num(r[yi[2050]])
+        if a is None or b is None:
+            continue
+        out.append((code.zfill(5)[:5] if len(code) <= 5 else code[:5], str(r[ni] or "").strip(), a, b))
+    return out
 
 
 def run():
     data = {}  # 指標 -> {code: (name, 2020, 2050)}
     for u, ws in sheets():
-        t = ws.title + " " + u
-        kind = "total" if re.search(r"総数|総人口|男女計", t) else "kids" if re.search(r"0.?～?14|年少", t) else \
-            "old" if re.search(r"65|老年", t) else None
+        kind = ws.title.split(" ")[0]
         res = parse(ws)
         if not res:
             continue
-        kind = kind or "total"
         d = data.setdefault(kind, {})
         for code, name, a, b in res:
             if a and b is not None and not code.endswith("000"):
