@@ -1,0 +1,30 @@
+{
+ "repo": "arai-sarai-data/iji-dekinai",
+ "title": "維持できなくなる町",
+ "title_en": "Towns That Can't Keep Going",
+ "short": "維持できなくなる町",
+ "short_en": "Towns That Can't Keep Going",
+ "tagline": "2050年、あなたの町の人口は何割減るのか。公式の将来推計から、人口・子ども・高齢化の行方を市区町村ごとに並べました。",
+ "tagline_en": "By 2050, how much will your town shrink? Official projections for every municipality: population, children and ageing.",
+ "color": "#e8590c",
+ "hashtags": [
+  "人口減少",
+  "地方"
+ ],
+ "langs": [
+  "ja",
+  "en"
+ ],
+ "search": {
+  "placeholder": "市区町村名で検索",
+  "placeholder_en": "Search"
+ },
+ "about": {
+  "what": "国立社会保障・人口問題研究所の公式推計（2023年）を使い、2020年→2050年の変化を市区町村ごとに比べます。",
+  "method": "2020年国勢調査人口と2050年の推計人口の比較。",
+  "notes": [
+   "推計は今の傾向が続いた場合の見通しです。"
+  ]
+ },
+ "contact": "arai-sarai-data@proton.me"
+}
